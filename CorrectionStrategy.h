@@ -3,7 +3,7 @@
 #include "DecodeResult.h"
 
 
-template <int NumDataBits, int NumCheckBits>
+template <size_t NumDataBits, size_t NumCheckBits>
 // ReSharper disable once CppPolymorphicClassWithNonVirtualPublicDestructor
 struct CorrectionStrategy
 {

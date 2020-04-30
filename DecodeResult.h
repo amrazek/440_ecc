@@ -3,7 +3,7 @@
 #include <memory>
 
 
-template <int NumDataBits, int NumCheckBits>
+template <size_t NumDataBits, size_t NumCheckBits>
 struct DecodeResult
 {
     bool success;

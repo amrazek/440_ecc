@@ -154,6 +154,7 @@
     <ClInclude Include="Chunk.h" />
     <ClInclude Include="CorrectionStrategy.h" />
     <ClInclude Include="DecodeResult.h" />
+    <ClInclude Include="HammingCode.h" />
     <ClInclude Include="ParityBit.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -3,7 +3,7 @@
 #include "CorrectionStrategy.h"
 
 
-template <int NumDataBits>
+template <size_t NumDataBits>
 // ReSharper disable once CppPolymorphicClassWithNonVirtualPublicDestructor
 class ParityCheck: public CorrectionStrategy<NumDataBits, 1>
 {
@@ -14,11 +14,10 @@ public:
     // given a piece of data (in terms of bits), generates check bits
     std::bitset<NumDataBits + 1> encode(const typename CorrectionStrategy<NumDataBits, 1>::DataBits& data) const override
     {
-        std::bitset<NumDataBits + 1> check;
+        auto check = BitStream<NumDataBits + 1>::convert_bitset_to_bitset(data);
 
-        // want parity bit as LSB which is index 0 in the bitset convention
-        for (size_t i = 0; i < NumDataBits; ++i)
-            check[i + 1] = data[i];
+        // parity bit should be LSB, at index 0 -> shift everything
+        check <<= 1;
 
         check[0] = data.count() % 2 == 1; // odd number of bits set? parity bit = 1
 
@@ -45,6 +44,7 @@ public:
         result.success = storedData.count() % 2 == 0;
 
         result.num_corrupt_bits = result.success ? 0 : 1;
+        result.num_corrected_bits = 0;
 
         return result;
     }
