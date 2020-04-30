@@ -61,6 +61,22 @@ struct BitStream : public std::bitset<Size>
         return bits;
     }
 
+
+    // note: assumes buf is at least ceil(size / 8) bytes long
+    void to_buffer(uint8_t* buf)
+    {
+        for (size_t bitIdx = 0; bitIdx < Size; bitIdx += 8)
+        {
+            uint8_t byteVal = 0;
+
+            for (size_t bit = 0; bit < 8 && (bitIdx + bit < Size); ++bit)
+                byteVal |= (this->test(bitIdx + bit) ? 1 : 0) << bit;
+
+            *(buf + bitIdx / 8) = byteVal;
+        }
+    }
+
+
     template <class T>
     T to() const
     {

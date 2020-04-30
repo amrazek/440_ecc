@@ -51,12 +51,20 @@ void hamming()
     auto bs = BitStream<Hamming_t::DATA_BIT_COUNT>::from_buffer(reinterpret_cast<const uint8_t*>(&i), size_bits);
 
     chunk.store(bs);
+    //chunk.corrupt(5);
+    chunk.corrupt(4);
 
     auto result = chunk.retrieve();
     auto rbs = BitStream<Hamming_t::DATA_BIT_COUNT>(result.decoded_bits);
-    auto final_result = rbs.to<int>();
 
+    // final result
+    int j = 0;
+
+    rbs.to_buffer(reinterpret_cast<uint8_t*>(&j));
+
+    assert(i == j);
 }
+
 
 int main()
 {

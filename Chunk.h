@@ -21,13 +21,15 @@ private:
 
     // note: first bit is LSB
     StoredBits m_stored;
+    DataBits m_original; // uncorrupted original data
     StrategyPtr m_strategy;
 
 
     // erase this chunk
     void clear_contents()
     {
-        m_stored = m_strategy->encode(DataBits());
+        m_original = DataBits();
+        m_stored = m_strategy->encode(m_original);
     }
 
 
@@ -45,11 +47,21 @@ public:
     void store(BitStream<NumDataBits>& bs)
     {
         m_stored = m_strategy->encode(bs);
+        m_original = bs;
     }
 
     DecodeResult<NumDataBits, NumCheckBits> retrieve() const
     {
-        return m_strategy->decode(m_stored);
+        auto result = m_strategy->decode(m_stored);
+
+        // return the actual original data as well, in case error detection has
+        // failed to detect an error and the data is actually corrupt
+        result.original_bits = m_original;
+        result.stored_bits = m_stored;
+
+        result.success = result.success && result.original_bits == result.decoded_bits;
+
+        return result;
     }
 
 
