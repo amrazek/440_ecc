@@ -47,22 +47,24 @@ void hamming()
     const auto hammingStrategy = std::dynamic_pointer_cast<Chunk_t::StrategyPtr::element_type>(std::make_shared<Hamming_t>());
 
 
-    auto chunk = Chunk_t(hammingStrategy);
-    auto bs = BitStream<Hamming_t::DATA_BIT_COUNT>::from_buffer(reinterpret_cast<const uint8_t*>(&i), size_bits);
+    for (int corruptIdx = 0; corruptIdx < Hamming_t::TOTAL_BIT_COUNT; ++corruptIdx) {
+        auto chunk = Chunk_t(hammingStrategy);
+        auto bs = BitStream<Hamming_t::DATA_BIT_COUNT>::from_buffer(reinterpret_cast<const uint8_t*>(&i), size_bits);
 
-    chunk.store(bs);
-    //chunk.corrupt(5);
-    chunk.corrupt(4);
+        chunk.store(bs);
+        //chunk.corrupt(5);
+        chunk.corrupt(corruptIdx);
 
-    auto result = chunk.retrieve();
-    auto rbs = BitStream<Hamming_t::DATA_BIT_COUNT>(result.decoded_bits);
+        auto result = chunk.retrieve();
+        auto rbs = BitStream<Hamming_t::DATA_BIT_COUNT>(result.decoded_bits);
 
-    // final result
-    int j = 0;
+        // final result
+        int j = 0;
 
-    rbs.to_buffer(reinterpret_cast<uint8_t*>(&j));
+        rbs.to_buffer(reinterpret_cast<uint8_t*>(&j));
 
-    assert(i == j);
+        assert(i == j);
+    }
 }
 
 

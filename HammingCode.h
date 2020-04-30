@@ -26,7 +26,7 @@ class HammingCode : public CorrectionStrategy<NumDataBits, calc_num_redundant_bi
     typedef std::function<void (StoredDataBits_t& data, size_t parityIdx, bool parityVal)> ParityCalcPostFunc_t;
 
 
-    static void compute_parity_bits(StoredDataBits_t& encoded, ParityCalcPostFunc_t func) 
+    static void compute_parity_bits(StoredDataBits_t& encoded, bool includeParityInCalc, ParityCalcPostFunc_t func) 
     {
         // compute parity bits
         for (size_t i = 0; i < CHECK_BIT_COUNT; ++i)
@@ -41,7 +41,7 @@ class HammingCode : public CorrectionStrategy<NumDataBits, calc_num_redundant_bi
                 const auto t = (mask & (position + 1));
 
                 // don't include the parity bit itself in case it's set
-                if (t != 0 && (position + 1) != mask)
+                if (t != 0 && (includeParityInCalc || ((position + 1) != mask)))
                     if (encoded.test(position))
                         ++counter;
             }
@@ -86,7 +86,7 @@ public:
         }
 
         // compute parity bits and set them
-        compute_parity_bits(encoded, [](StoredDataBits_t& data, size_t parityIdx, bool parityVal) { data[parityIdx] = parityVal; });
+        compute_parity_bits(encoded, false, [](StoredDataBits_t& data, size_t parityIdx, bool parityVal) { data[parityIdx] = parityVal; });
 
         return encoded;
     }
@@ -98,28 +98,30 @@ public:
         auto corrupt = false;
 
         // first, re-compute parity bits to check integrity of data
-        compute_parity_bits(storedData, [&corrupt](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
+        compute_parity_bits(storedData, false, [&corrupt](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
         {
             // does calculated parity val match the expected one? if not, a corrupt bit is detected
-            if (data.test(parityIdx) != parityVal)
-                corrupt = true; 
+            if (data.test(parityIdx) != parityVal) 
+                corrupt = true;
+            
         });
 
         if (corrupt)
         {
             // identify corrupted bit index using the parity bits as binary location
+            // this time we include the parity bits themselves to come up with the binary value
+            // representing the position of (at least one of) the corrupt bit(s)
+            
             size_t corruptIdx = 0;
-            size_t currentIdx = 1;
+            size_t position = 1; // note that using 1-based position, will need correcting when we flip
 
-            for (size_t i = 0; i < CHECK_BIT_COUNT; ++i, currentIdx *= 2)
+            compute_parity_bits(storedData, true, [&corruptIdx, &position](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
             {
-                corruptIdx <<= 1;
-                corruptIdx |= storedData.test(currentIdx - 1) ? 1 : 0;
-            }
+                if (parityVal)
+                    corruptIdx += position;  
 
-            assert(corruptIdx < storedData.size());
-
-            result.num_corrupt_bits = 1;
+                position *= 2;
+            });
 
             // correct the error
             storedData.flip(corruptIdx - 1);
@@ -128,16 +130,20 @@ public:
             // error in the data which we can't fix
             auto fixed = true;
 
-            compute_parity_bits(storedData, [&fixed](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
+            compute_parity_bits(storedData, false, [&fixed](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
             {
                 fixed = fixed && data.test(parityIdx) == parityVal;
             });
 
             result.num_corrected_bits = fixed ? 1 : 0;
             result.num_corrupt_bits = fixed ? 1 : 2;
-        } else
-        {
+
+            result.success = fixed;
+
+        } else { // not corrupt
+
             result.num_corrupt_bits = 0;
+            result.success = true;
         }
 
 
@@ -150,9 +156,6 @@ public:
 
             result.decoded_bits[dataIdx++] = storedData.test(i);
         }
-
-
-        result.success = true;
 
         return result;
     }
