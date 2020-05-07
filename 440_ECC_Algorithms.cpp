@@ -10,68 +10,6 @@ using std::cout;
 using std::endl;
 using std::setw;
 
-//
-//void parity()
-//{
-//    const char* buf2 = "Hello, world!";
-//
-//    const auto size = 14 * 8;
-//
-//    Chunk<size> chunk(Chunk<size, size + 1>::StrategyPtr(new ParityBit<size>));
-//
-//    auto bs = BitStream<size>::from(buf2, size);
-//
-//    chunk.store(bs);;
-//
-//    chunk.corrupt(22);
-//
-//    auto result = chunk.retrieve();
-//
-//    auto rbs = BitStream<size>(result.decoded_bits);
-//
-//    auto final_result = rbs.to_many<char>(14);
-//
-//    char buf[14] = { '\0' };
-//
-//    memcpy(buf, final_result.get(), 14);
-//}
-
-
-void hamming()
-{
-    int i = 0b0000000001011011; 
-
-    //const auto size_bits = sizeof(i) * 8;
-    const auto size_bits = 7; // just the 1010 part
-
-    typedef HammingCode<size_bits> Hamming_t;
-    typedef Chunk<size_bits, Hamming_t::TOTAL_BIT_COUNT> Chunk_t;
-
-    const auto hammingStrategy = std::dynamic_pointer_cast<Chunk_t::StrategyPtr::element_type>(std::make_shared<Hamming_t>());
-
-
-    for (size_t corruptIdx = 0; corruptIdx < Hamming_t::TOTAL_BIT_COUNT - 1; ++corruptIdx) {
-        auto chunk = Chunk_t(hammingStrategy);
-        auto bs = BitStream<size_bits>::from_buffer(reinterpret_cast<const uint8_t*>(&i), size_bits);
-
-        chunk.store(bs);
-        //chunk.corrupt(3);
-        //chunk.corrupt(10);
-        chunk.corrupt(corruptIdx);
-        chunk.corrupt((corruptIdx + 1) % size_bits);
-
-        const auto result = chunk.retrieve();
-        auto rbs = BitStream<size_bits>(result.decoded_bits);
-
-        // final result
-        int j = 0;
-
-        rbs.to_buffer(reinterpret_cast<uint8_t*>(&j));
-
-        assert(!result.correct || !result.success);
-    }
-}
-
 
 template <size_t encoded_bits>
 void identify_corrupt_bits(size_t cout_width, const BitStream<encoded_bits>& original, const BitStream<encoded_bits>& maybeCorrupt) {
@@ -257,7 +195,7 @@ void demo_hamming(uint8_t* data,
 }
 
 
-void print_int(uint8_t* p)
+void print_int(uint8_t* const p)
 {
     cout << *(reinterpret_cast<int*>(p));
 }
@@ -277,13 +215,9 @@ void corrupt_int(Chunk<num_data_bits, num_encoded_bits>& memory)
 
 int main()
 {
-    //parity();
-    hamming();
-
     // test with an integer value
     int val = 123456;
     constexpr size_t num_data_bits = sizeof(val) * 8;
-
 
 
     // demo parity check
@@ -303,3 +237,37 @@ int main()
     return 0;
 }
 
+
+// used to test Hamming code 
+void hamming()
+{
+    int i = 0b0000000001011011;
+
+    //const auto size_bits = sizeof(i) * 8;
+    const auto size_bits = 7; // just the 1011011 part
+
+    typedef HammingCode<size_bits> Hamming_t;
+    typedef Chunk<size_bits, Hamming_t::TOTAL_BIT_COUNT> Chunk_t;
+
+    const auto hammingStrategy = std::dynamic_pointer_cast<Chunk_t::StrategyPtr::element_type>(std::make_shared<Hamming_t>());
+
+
+    for (size_t corruptIdx = 0; corruptIdx < Hamming_t::TOTAL_BIT_COUNT - 1; ++corruptIdx) {
+        auto chunk = Chunk_t(hammingStrategy);
+        auto bs = BitStream<size_bits>::from_buffer(reinterpret_cast<const uint8_t*>(&i), size_bits);
+
+        chunk.store(bs);
+        chunk.corrupt(corruptIdx);
+        chunk.corrupt((corruptIdx + 1) % size_bits);
+
+        const auto result = chunk.retrieve();
+        auto rbs = BitStream<size_bits>(result.decoded_bits);
+
+        // final result
+        int j = 0;
+
+        rbs.to_buffer(reinterpret_cast<uint8_t*>(&j));
+
+        assert(!result.correct || !result.success);
+    }
+}
