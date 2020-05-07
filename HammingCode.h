@@ -1,6 +1,4 @@
 #pragma once
-#include <cmath>
-#include "BitStream.h"
 #include "CorrectionStrategy.h"
 #include <functional>
 
@@ -94,36 +92,27 @@ public:
     {
         DecodeResult_t result;
         auto corrupt = false;
+        size_t corruptIdx = 0, position = 1; // note that using 1-based position, will need correcting when we flip
 
         // first, re-compute parity bits to check integrity of data
-        compute_parity_bits(storedData, [&corrupt](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
+        compute_parity_bits(storedData, [&corrupt, &corruptIdx, &position](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
         {
             // does calculated parity val match the expected one? if not, a corrupt bit is detected
             // note: we expect the correct bits to be set here for even parity. So we're always
             // expecting FALSE for parity val
-            //if (storedData.test(parityIdx) != parityVal)
-            if (!parityVal) // parity bits of data are not correct!
+            if (parityVal)  // parity bits of data are not correct!
                 corrupt = true;
-            
+
+            // if we get non-zero parity, it is used to encode the position of the
+            // (at least one) bad bit
+            if (corrupt && parityVal)
+                corruptIdx += position;
+
+            position *= 2;
         });
 
         if (corrupt)
         {
-            // identify corrupted bit index using the parity bits as binary location
-            // this time we include the parity bits themselves to come up with the binary value
-            // representing the position of (at least one of) the corrupt bit(s)
-            
-            size_t corruptIdx = 0;
-            size_t position = 1; // note that using 1-based position, will need correcting when we flip
-
-            compute_parity_bits(storedData, [&corruptIdx, &position](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
-            {
-                if (parityVal)
-                    corruptIdx += position;  
-
-                position *= 2;
-            });
-
             // correct the error (remember: corruptIdx is 1-based, bitset is 0-based)
             storedData.flip(corruptIdx - 1);
 
@@ -131,9 +120,9 @@ public:
             // error in the data which we can't fix
             auto fixed = true;
 
-            compute_parity_bits(storedData, [&fixed, &storedData](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
+            compute_parity_bits(storedData, [&fixed](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
             {
-                fixed = fixed && storedData.test(parityIdx) == parityVal;
+                fixed = fixed && !parityVal;
             });
 
             result.num_corrected_bits = fixed ? 1 : 0;
