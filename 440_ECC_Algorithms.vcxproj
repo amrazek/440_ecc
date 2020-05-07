@@ -156,7 +156,6 @@
     <ClInclude Include="DecodeResult.h" />
     <ClInclude Include="HammingCode.h" />
     <ClInclude Include="ParityBit.h" />
-    <ClInclude Include="Tester.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

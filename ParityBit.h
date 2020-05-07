@@ -5,7 +5,7 @@
 
 template <size_t NumDataBits>
 // ReSharper disable once CppPolymorphicClassWithNonVirtualPublicDestructor
-class ParityCheck: public CorrectionStrategy<NumDataBits, NumDataBits + 1>
+class ParityBit: public CorrectionStrategy<NumDataBits, NumDataBits + 1>
 {
     typedef typename CorrectionStrategy<NumDataBits, NumDataBits + 1>::DecodeResult DecodeResult;
 
@@ -42,7 +42,7 @@ public:
 
         // if the stored data is unchanged, a parity check should result in zero (even parity)
         result.success = storedData.count() % 2 == 0;
-
+        result.error_detected = !result.success;
         result.num_corrupt_bits = result.success ? 0 : 1;
         result.num_corrected_bits = 0;
 

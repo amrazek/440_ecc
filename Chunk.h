@@ -12,8 +12,10 @@ template <size_t NumDataBits, size_t NumEncodedBits = NumDataBits + 1>
 class Chunk
 {
 public:
-    typedef std::bitset<NumDataBits> DataBits;
-    typedef std::bitset<NumEncodedBits> StoredBits;
+    //typedef std::bitset<NumDataBits> DataBits;
+    //typedef std::bitset<NumEncodedBits> StoredBits;
+    typedef BitStream<NumDataBits> DataBits;
+    typedef BitStream<NumEncodedBits> StoredBits;
     typedef std::shared_ptr<CorrectionStrategy<NumDataBits, NumEncodedBits>> StrategyPtr;
 
 
@@ -78,6 +80,6 @@ public:
 
     StoredBits get() const
     {
-        return m_stored;
+        return BitStream<NumEncodedBits>(m_stored);
     }
 };

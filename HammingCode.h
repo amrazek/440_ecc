@@ -16,6 +16,7 @@ constexpr size_t calc_hamming_code_check_bits(size_t dataBits, size_t redundant_
 }
 
 
+// Implements extended Hamming code (with extra parity bit on data at MSB)
 template <size_t NumDataBits>
 // ReSharper disable once CppPolymorphicClassWithNonVirtualPublicDestructor
 class HammingCode : public CorrectionStrategy<NumDataBits, NumDataBits + 1 + calc_hamming_code_check_bits(NumDataBits + 1)> // +1 data bits for extended hamming code
@@ -170,7 +171,7 @@ public:
         const auto paritySet = decoded.test(decoded.size() - 1);
         const auto needsParitySet = recovered.count() % 2 != 0;
 
-        auto de = paritySet != needsParitySet;
+        auto de = paritySet != needsParitySet; // double error test
 
         result.decoded_bits = recovered;
         result.success = !de;
