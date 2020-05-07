@@ -52,8 +52,9 @@ void hamming()
         auto bs = BitStream<Hamming_t::DATA_BIT_COUNT>::from_buffer(reinterpret_cast<const uint8_t*>(&i), size_bits);
 
         chunk.store(bs);
-        //chunk.corrupt(5);
-        chunk.corrupt(corruptIdx);
+        chunk.corrupt(0);
+        //chunk.corrupt(8);
+        //chunk.corrupt(corruptIdx);
 
         auto result = chunk.retrieve();
         auto rbs = BitStream<Hamming_t::DATA_BIT_COUNT>(result.decoded_bits);
@@ -70,7 +71,7 @@ void hamming()
 
 int main()
 {
-    parity();
+    //parity();
     hamming();
 
 }

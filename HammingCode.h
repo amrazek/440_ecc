@@ -25,8 +25,7 @@ class HammingCode : public CorrectionStrategy<NumDataBits, calc_num_redundant_bi
     typedef DecodeResult<NumDataBits, calc_num_redundant_bits(NumDataBits)> DecodeResult_t;
     typedef std::function<void (StoredDataBits_t& data, size_t parityIdx, bool parityVal)> ParityCalcPostFunc_t;
 
-
-    static void compute_parity_bits(StoredDataBits_t& encoded, bool includeParityInCalc, ParityCalcPostFunc_t func) 
+    static void compute_parity_bits(StoredDataBits_t& encoded, ParityCalcPostFunc_t func)
     {
         // compute parity bits
         for (size_t i = 0; i < CHECK_BIT_COUNT; ++i)
@@ -40,8 +39,7 @@ class HammingCode : public CorrectionStrategy<NumDataBits, calc_num_redundant_bi
             for (size_t position = 0; position < TOTAL_BIT_COUNT; ++position) {
                 const auto t = (mask & (position + 1));
 
-                // don't include the parity bit itself in case it's set
-                if (t != 0 && (includeParityInCalc || ((position + 1) != mask)))
+                if (t != 0)
                     if (encoded.test(position))
                         ++counter;
             }
@@ -86,7 +84,7 @@ public:
         }
 
         // compute parity bits and set them
-        compute_parity_bits(encoded, false, [](StoredDataBits_t& data, size_t parityIdx, bool parityVal) { data[parityIdx] = parityVal; });
+        compute_parity_bits(encoded, [](StoredDataBits_t& data, size_t parityIdx, bool parityVal) { data[parityIdx] = parityVal; });
 
         return encoded;
     }
@@ -98,10 +96,13 @@ public:
         auto corrupt = false;
 
         // first, re-compute parity bits to check integrity of data
-        compute_parity_bits(storedData, false, [&corrupt](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
+        compute_parity_bits(storedData, [&corrupt](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
         {
             // does calculated parity val match the expected one? if not, a corrupt bit is detected
-            if (data.test(parityIdx) != parityVal) 
+            // note: we expect the correct bits to be set here for even parity. So we're always
+            // expecting FALSE for parity val
+            //if (storedData.test(parityIdx) != parityVal)
+            if (!parityVal) // parity bits of data are not correct!
                 corrupt = true;
             
         });
@@ -115,7 +116,7 @@ public:
             size_t corruptIdx = 0;
             size_t position = 1; // note that using 1-based position, will need correcting when we flip
 
-            compute_parity_bits(storedData, true, [&corruptIdx, &position](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
+            compute_parity_bits(storedData, [&corruptIdx, &position](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
             {
                 if (parityVal)
                     corruptIdx += position;  
@@ -123,16 +124,16 @@ public:
                 position *= 2;
             });
 
-            // correct the error
+            // correct the error (remember: corruptIdx is 1-based, bitset is 0-based)
             storedData.flip(corruptIdx - 1);
 
             // compute parity again. If it doesn't come out right, there's another
             // error in the data which we can't fix
             auto fixed = true;
 
-            compute_parity_bits(storedData, false, [&fixed](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
+            compute_parity_bits(storedData, [&fixed, &storedData](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
             {
-                fixed = fixed && data.test(parityIdx) == parityVal;
+                fixed = fixed && storedData.test(parityIdx) == parityVal;
             });
 
             result.num_corrected_bits = fixed ? 1 : 0;
