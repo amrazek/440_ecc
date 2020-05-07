@@ -69,4 +69,15 @@ public:
     {
         m_stored.flip(bit_idx);
     }
+
+
+    std::string to_string() const
+    {
+        return m_stored.to_string();
+    }
+
+    StoredBits get() const
+    {
+        return m_stored;
+    }
 };

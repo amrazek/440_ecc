@@ -113,17 +113,6 @@ struct BitStream : public std::bitset<Size>
         return buf;
     }
 
-    //template <size_t BitLen>
-    //std::bitset<BitLen> convert_to_bitset() const
-    //{
-    //    std::bitset<BitLen> bits;
-
-    //    for (size_t i = 0; i < std::min(this->size(), BitLen); ++i)
-    //        bits[i] = this->test(i);
-
-    //    return bits;
-    //}
-    //
 
     // convert from given bitset to bitstream of template Size
     // useful to avoid some repetition

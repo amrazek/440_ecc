@@ -9,18 +9,18 @@ constexpr size_t two_to_power_of(int exponent)
 }
 
 
-constexpr size_t calc_num_redundant_bits(size_t dataBits, size_t redundant_bits = 0)
+constexpr size_t calc_hamming_code_check_bits(size_t dataBits, size_t redundant_bits = 0)
 {
     // 2^r >= data bits + r + 1
-    return two_to_power_of(redundant_bits) >= dataBits + redundant_bits + 1 ? redundant_bits : calc_num_redundant_bits(dataBits, redundant_bits + 1);
+    return two_to_power_of(redundant_bits) >= dataBits + redundant_bits + 1 ? redundant_bits : calc_hamming_code_check_bits(dataBits, redundant_bits + 1);
 }
 
 
 template <size_t NumDataBits>
-class HammingCode : public CorrectionStrategy<NumDataBits, calc_num_redundant_bits(NumDataBits)>
+class HammingCode : public CorrectionStrategy<NumDataBits, calc_hamming_code_check_bits(NumDataBits) + 1> // +1 for extending hamming code
 {
-    typedef std::bitset<NumDataBits + calc_num_redundant_bits(NumDataBits)> StoredDataBits_t;
-    typedef DecodeResult<NumDataBits, calc_num_redundant_bits(NumDataBits)> DecodeResult_t;
+    typedef std::bitset<NumDataBits + calc_hamming_code_check_bits(NumDataBits)> StoredDataBits_t;
+    typedef DecodeResult<NumDataBits, calc_hamming_code_check_bits(NumDataBits)> DecodeResult_t;
     typedef std::function<void (StoredDataBits_t& data, size_t parityIdx, bool parityVal)> ParityCalcPostFunc_t;
 
     static void compute_parity_bits(StoredDataBits_t& encoded, ParityCalcPostFunc_t func)
@@ -57,7 +57,7 @@ class HammingCode : public CorrectionStrategy<NumDataBits, calc_num_redundant_bi
 
 public:
     static constexpr size_t DATA_BIT_COUNT = NumDataBits;
-    static constexpr size_t CHECK_BIT_COUNT = calc_num_redundant_bits(NumDataBits);
+    static constexpr size_t CHECK_BIT_COUNT = calc_hamming_code_check_bits(NumDataBits);
     static constexpr size_t TOTAL_BIT_COUNT = DATA_BIT_COUNT + CHECK_BIT_COUNT;
 
     StoredDataBits_t encode(const std::bitset<NumDataBits>& data) const override
