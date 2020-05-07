@@ -90,13 +90,13 @@ void demo_parity(uint8_t* data,
     if (result.correct)
     {
         assert(result.success);
-        cout << "No memory error" << endl;
+        cout << "no memory error" << endl;
         
     } else
     {
         if (result.success)
-            cout << "Parity check failed to identify corrupt memory" << endl;
-        else cout << "Parity check identified corrupt memory" << endl;
+            cout << "parity check failed to identify corrupt memory" << endl;
+        else cout << "parity check identified corrupt memory" << endl;
     }
 
     cout << "---------- end parity check ----------- \n" << endl;
@@ -191,48 +191,150 @@ void demo_hamming(uint8_t* data,
 
     cout << endl;
     cout << "---------- end Hamming code ----------- \n" << endl;
-
 }
 
 
-void print_int(uint8_t* const p)
+template <class T>
+void print_data(uint8_t* const p)
 {
-    cout << *(reinterpret_cast<int*>(p));
-}
-
-template <size_t num_data_bits, size_t num_encoded_bits>
-void corrupt_int(Chunk<num_data_bits, num_encoded_bits>& memory)
-{
-    // corrupt third bit
-    memory.corrupt(2);
-
-    // corrupt bit
-    //memory.corrupt(4);
-
-    //memory.corrupt(9);
+    static_assert(std::is_pod<T>::value, "must be POD type");
+    cout << *(reinterpret_cast<T*>(p));
 }
 
 
-int main()
+
+// parity bit example used in paper - no corruption
+void example_parity_1()
 {
-    // test with an integer value
-    int val = 123456;
-    constexpr size_t num_data_bits = sizeof(val) * 8;
+    char val = 'p'; // use only 7 bits - 111 0000
+    constexpr auto data_bits = 7;
+    typedef Chunk<data_bits, data_bits + 1> Chunk_t;
+
+    // no corruption
+    demo_parity<data_bits>(reinterpret_cast<uint8_t*>(&val), print_data<char>, 
+        [](Chunk_t& memory) {
+            // nop
+        });
+}
+
+// parity bit example used in paper - bit 1 corrupted
+void example_parity_2() 
+{
+    char val = 'p'; // use only 7 bits - 111 0000
+    constexpr auto data_bits = 7;
+    typedef Chunk<data_bits, data_bits + 1> Chunk_t;
+
+    // corruption on bit 1
+    demo_parity<data_bits>(reinterpret_cast<uint8_t*>(&val), print_data<char>,
+        [](Chunk_t& memory) {
+            memory.corrupt(1);
+        });
+}
+
+// parity bit example used in paper - bits 1 and 5 corrupted
+void example_parity_3()
+{
+    char val = 'p'; // use only 7 bits - 111 0000
+    constexpr auto data_bits = 7;
+    typedef Chunk<data_bits, data_bits + 1> Chunk_t;
+
+    // corruption on bit 1 and 5
+    demo_parity<data_bits>(reinterpret_cast<uint8_t*>(&val), print_data<char>,
+        [](Chunk_t& memory) {
+            memory.corrupt(1);
+            memory.corrupt(5);
+        });
+}
 
 
-    // demo parity check
-    demo_parity<num_data_bits>(reinterpret_cast<uint8_t*>(&val), print_int, corrupt_int<num_data_bits, num_data_bits + 1>);
+// hamming code example used in paper - no corruption
+void example_hamming_1()
+{
+    char val = 'p'; // use only 7 bits - 111 0000
+    constexpr auto data_bits = 7;
+    typedef HammingCode<data_bits> Hamming_t;
 
-    // demo hamming code
-    typedef HammingCode<num_data_bits> Hamming_t;
-
-
-    demo_hamming<num_data_bits>(
+    demo_hamming<data_bits>(
         reinterpret_cast<uint8_t*>(&val),
 
         // print function
-        print_int,
-        corrupt_int<num_data_bits, Hamming_t::TOTAL_BIT_COUNT>);
+        print_data<char>,
+        [](Hamming_t::Chunk_t& memory)
+    {
+        // nop
+    });
+}
+
+// hamming code example used in paper - bit 1 corrupted
+void example_hamming_2()
+{
+    char val = 'p'; // use only 7 bits - 111 0000
+    constexpr auto data_bits = 7;
+    typedef HammingCode<data_bits> Hamming_t;
+
+    demo_hamming<data_bits>(
+        reinterpret_cast<uint8_t*>(&val),
+
+        // print function
+        print_data<char>,
+        [](Hamming_t::Chunk_t& memory)
+        {
+            memory.corrupt(1);
+        });
+}
+
+// hamming code example used in paper - bits 1 and 5 corrupted
+void example_hamming_3()
+{
+    char val = 'p'; // use only 7 bits - 111 0000
+    constexpr auto data_bits = 7;
+    typedef HammingCode<data_bits> Hamming_t;
+
+    demo_hamming<data_bits>(
+        reinterpret_cast<uint8_t*>(&val),
+
+        // print function
+        print_data<char>,
+        [](Hamming_t::Chunk_t& memory)
+        {
+            memory.corrupt(1);
+            memory.corrupt(5);
+        });
+}
+
+// hamming code example used in paper - bits 1, 5 and 9 corrupted
+void example_hamming_4()
+{
+    char val = 'p'; // use only 7 bits - 111 0000
+    constexpr auto data_bits = 7;
+    typedef HammingCode<data_bits> Hamming_t;
+
+    demo_hamming<data_bits>(
+        reinterpret_cast<uint8_t*>(&val),
+
+        // print function
+        print_data<char>,
+        [](Hamming_t::Chunk_t& memory)
+        {
+            memory.corrupt(1);
+            memory.corrupt(5);
+            memory.corrupt(9);
+        });
+}
+
+
+void hamming();
+
+int main() 
+{
+    example_parity_1();
+    example_parity_2();
+    example_parity_3();
+
+    example_hamming_1();
+    example_hamming_2();
+    example_hamming_3();
+    example_hamming_4();
 
     return 0;
 }
@@ -243,7 +345,6 @@ void hamming()
 {
     int i = 0b0000000001011011;
 
-    //const auto size_bits = sizeof(i) * 8;
     const auto size_bits = 7; // just the 1011011 part
 
     typedef HammingCode<size_bits> Hamming_t;
@@ -269,5 +370,6 @@ void hamming()
         rbs.to_buffer(reinterpret_cast<uint8_t*>(&j));
 
         assert(!result.correct || !result.success);
+        assert(!result.success);
     }
 }
