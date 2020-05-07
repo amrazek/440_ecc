@@ -17,12 +17,20 @@ constexpr size_t calc_hamming_code_check_bits(size_t dataBits, size_t redundant_
 
 
 template <size_t NumDataBits>
-class HammingCode : public CorrectionStrategy<NumDataBits, calc_hamming_code_check_bits(NumDataBits) + 1> // +1 for extending hamming code
+// ReSharper disable once CppPolymorphicClassWithNonVirtualPublicDestructor
+class HammingCode : public CorrectionStrategy<NumDataBits, NumDataBits + 1 + calc_hamming_code_check_bits(NumDataBits + 1)> // +1 data bits for extended hamming code
 {
-    typedef std::bitset<NumDataBits + calc_hamming_code_check_bits(NumDataBits)> StoredDataBits_t;
-    typedef DecodeResult<NumDataBits, calc_hamming_code_check_bits(NumDataBits)> DecodeResult_t;
+public:
+    static constexpr size_t DATA_BIT_COUNT = NumDataBits + 1; // note: there is one extra parity bit over the Hamming code to allow for double error detection
+    static constexpr size_t CHECK_BIT_COUNT = calc_hamming_code_check_bits(DATA_BIT_COUNT);
+    static constexpr size_t TOTAL_BIT_COUNT = DATA_BIT_COUNT + CHECK_BIT_COUNT;
+
+    typedef std::bitset<TOTAL_BIT_COUNT> StoredDataBits_t;
+    typedef DecodeResult<NumDataBits, TOTAL_BIT_COUNT> DecodeResult_t;
+    typedef std::bitset<NumDataBits + 1> DecodedBits_t;
     typedef std::function<void (StoredDataBits_t& data, size_t parityIdx, bool parityVal)> ParityCalcPostFunc_t;
 
+private:
     static void compute_parity_bits(StoredDataBits_t& encoded, ParityCalcPostFunc_t func)
     {
         // compute parity bits
@@ -44,7 +52,7 @@ class HammingCode : public CorrectionStrategy<NumDataBits, calc_hamming_code_che
 
             // use even parity bit: counter should be an even value
             // set parity bit to 1 if it's not
-            bool parityBit = counter % 2 == 1;
+            const auto parityBit = counter % 2 == 1;
 
             func(encoded, mask - 1, parityBit); // parity bit actual idx is 0-based
         }
@@ -55,33 +63,52 @@ class HammingCode : public CorrectionStrategy<NumDataBits, calc_hamming_code_che
         return val && !(val & val - 1);
     }
 
-public:
-    static constexpr size_t DATA_BIT_COUNT = NumDataBits;
-    static constexpr size_t CHECK_BIT_COUNT = calc_hamming_code_check_bits(NumDataBits);
-    static constexpr size_t TOTAL_BIT_COUNT = DATA_BIT_COUNT + CHECK_BIT_COUNT;
 
-    StoredDataBits_t encode(const std::bitset<NumDataBits>& data) const override
+    static DecodedBits_t fetch_decoded_data(StoredDataBits_t& encoded)
+    {
+        size_t dataIdx = 0;
+        DecodedBits_t decoded;
+
+        for (size_t i = 0; i < TOTAL_BIT_COUNT; ++i) {
+            if (is_power_of_two(i + 1)) continue;
+
+            decoded[dataIdx++] = encoded.test(i);
+        }
+
+        return decoded;
+    }
+
+public:
+    StoredDataBits_t encode(const std::bitset<NumDataBits>& unencodedData) const override
     {
         // the parity bits for hamming code are actually interleaved among the
         // data bits in a pattern: each parity bit is at a power-of-two index - 1
         StoredDataBits_t encoded;
 
         // first, distribute data bits among correct locations
+        // for the extended Hamming code, we're going to need to add one extra parity bit
+        // as MSB of the data bits (so actually we're encoding NumDataBits + 1 bits)
+        auto extendedData = BitStream<DATA_BIT_COUNT>::convert_bitset_to_bitset(unencodedData);
+        extendedData[NumDataBits] = unencodedData.count() % 2 != 0; // add parity bit to data
+            
         size_t idx_data = 0;
 
         for (size_t encode_idx = 0; encode_idx < TOTAL_BIT_COUNT; ++encode_idx)
         {
-            // is this a parity bit location? (idx is a power of 2)
+            // is this a Hamming parity bit location? (idx is a power of 2)
             // if so, ignore for now.
             // we assume 1-based array for this snippet
             if (is_power_of_two(encode_idx + 1))
                 continue;
             
             // normal data bit
-            encoded[encode_idx] = data[idx_data++];
+            encoded[encode_idx] = extendedData[idx_data++];
         }
 
-        // compute parity bits and set them
+
+
+
+        // compute Hamming parity bits and set them
         compute_parity_bits(encoded, [](StoredDataBits_t& data, size_t parityIdx, bool parityVal) { data[parityIdx] = parityVal; });
 
         return encoded;
@@ -91,6 +118,7 @@ public:
     DecodeResult_t decode(StoredDataBits_t storedData) const override
     {
         DecodeResult_t result;
+        StoredDataBits_t corrected = storedData;
         auto corrupt = false;
         size_t corruptIdx = 0, position = 1; // note that using 1-based position, will need correcting when we flip
 
@@ -111,40 +139,55 @@ public:
             position *= 2;
         });
 
-        if (corrupt)
-        {
+        if (corrupt && corruptIdx < TOTAL_BIT_COUNT) {
             // correct the error (remember: corruptIdx is 1-based, bitset is 0-based)
-            storedData.flip(corruptIdx - 1);
+            corrected.flip(corruptIdx - 1);
 
-            // compute parity again. If it doesn't come out right, there's another
-            // error in the data which we can't fix
+#if _DEBUG
+            // compute parity again. should be fixed, but this is not a guarantee the bits are correct
             auto fixed = true;
 
-            compute_parity_bits(storedData, [&fixed](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
+            compute_parity_bits(corrected, [&fixed](StoredDataBits_t& data, size_t parityIdx, bool parityVal)
             {
                 fixed = fixed && !parityVal;
             });
 
-            result.num_corrected_bits = fixed ? 1 : 0;
-            result.num_corrupt_bits = fixed ? 1 : 2;
 
-            result.success = fixed;
-
-        } else { // not corrupt
-
-            result.num_corrupt_bits = 0;
-            result.success = true;
+            assert(fixed);
+#endif
         }
 
 
-        // recover original data by throwing out the parity bits, which aren't needed anymore
-        size_t dataIdx = 0;
+        // recover original data by removing the Hamming parity bits, which aren't needed anymore
+        auto decoded = fetch_decoded_data(corrected);
 
-        for (size_t i = 0; i < TOTAL_BIT_COUNT; ++i)
-        {
-            if (is_power_of_two(i + 1)) continue;
+        // remember this is the extended Hamming code, so there's actually an extra bit at MSB position
+        // which is a parity check. This is needed to perform double error detection, otherwise
+        // Hamming code can't detect double errors
+        auto recovered = BitStream<NumDataBits>::convert_bitset_to_bitset(decoded);
 
-            result.decoded_bits[dataIdx++] = storedData.test(i);
+        // check the parity bit to make sure there wasn't a double error
+        const auto paritySet = decoded.test(decoded.size() - 1);
+        const auto needsParitySet = recovered.count() % 2 != 0;
+
+        auto de = paritySet != needsParitySet;
+
+        result.decoded_bits = recovered;
+        result.success = !de;
+        result.error_detected = corrupt;
+
+        if (corrupt) {
+            if (de) {
+                result.num_corrupt_bits = 2;
+                result.num_corrected_bits = 0;
+
+                // our correction was meaningless, so return decoded bits with no attempted correction
+                auto f = fetch_decoded_data(storedData);
+                result.decoded_bits = BitStream<NumDataBits>::convert_bitset_to_bitset(f);
+            } else {
+                result.num_corrupt_bits = 1;
+                result.num_corrected_bits = 1;
+            }
         }
 
         return result;

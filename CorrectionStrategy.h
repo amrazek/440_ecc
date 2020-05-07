@@ -3,18 +3,18 @@
 #include "DecodeResult.h"
 
 
-template <size_t NumDataBits, size_t NumCheckBits>
+template <size_t NumDataBits, size_t NumEncodedBits>
 // ReSharper disable once CppPolymorphicClassWithNonVirtualPublicDestructor
 struct CorrectionStrategy
 {
     typedef std::bitset<NumDataBits> DataBits;
-    typedef std::bitset<NumDataBits + NumCheckBits> StoredBits;
+    typedef std::bitset<NumEncodedBits> StoredBits;
 
-    typedef DecodeResult<NumDataBits, NumCheckBits> DecodeResult;
+    typedef DecodeResult<NumDataBits, NumEncodedBits> DecodeResult;
 
 
     // data = data to generate check bit data from
-    virtual std::bitset<NumDataBits + NumCheckBits> encode(const DataBits& data) const = 0;
+    virtual std::bitset<NumEncodedBits> encode(const DataBits& data) const = 0;
 
     // storedData = data stored in memory. Might be corrupt. Was generated using encode()
     virtual DecodeResult decode(StoredBits storedData) const = 0;

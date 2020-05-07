@@ -6,15 +6,15 @@
 
 
 /*
- * Represents a chunk of <num_bits> memory, with <check_bits> bytes of check bits
+ * Represents a chunk of memory
  */
-template <size_t NumDataBits, size_t NumCheckBits = 1>
+template <size_t NumDataBits, size_t NumEncodedBits = NumDataBits + 1>
 class Chunk
 {
 public:
     typedef std::bitset<NumDataBits> DataBits;
-    typedef std::bitset<NumDataBits + NumCheckBits> StoredBits;
-    typedef std::shared_ptr<CorrectionStrategy<NumDataBits, NumCheckBits>> StrategyPtr;
+    typedef std::bitset<NumEncodedBits> StoredBits;
+    typedef std::shared_ptr<CorrectionStrategy<NumDataBits, NumEncodedBits>> StrategyPtr;
 
 
 private:
@@ -50,7 +50,7 @@ public:
         m_original = bs;
     }
 
-    DecodeResult<NumDataBits, NumCheckBits> retrieve() const
+    DecodeResult<NumDataBits, NumEncodedBits> retrieve() const
     {
         auto result = m_strategy->decode(m_stored);
 
@@ -59,7 +59,7 @@ public:
         result.original_bits = m_original;
         result.stored_bits = m_stored;
 
-        result.success = result.success && result.original_bits == result.decoded_bits;
+        result.correct = result.original_bits == result.decoded_bits;
 
         return result;
     }

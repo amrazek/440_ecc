@@ -5,9 +5,9 @@
 
 template <size_t NumDataBits>
 // ReSharper disable once CppPolymorphicClassWithNonVirtualPublicDestructor
-class ParityCheck: public CorrectionStrategy<NumDataBits, 1>
+class ParityCheck: public CorrectionStrategy<NumDataBits, NumDataBits + 1>
 {
-    typedef typename CorrectionStrategy<NumDataBits, 1>::DecodeResult DecodeResult;
+    typedef typename CorrectionStrategy<NumDataBits, NumDataBits + 1>::DecodeResult DecodeResult;
 
 public:
 
@@ -29,7 +29,7 @@ public:
 
     // given stored data (in terms of bits, encoded by function above), recover original data
     DecodeResult decode(
-        typename CorrectionStrategy<NumDataBits, 1>::StoredBits storedData) const override
+        typename CorrectionStrategy<NumDataBits, NumDataBits + 1>::StoredBits storedData) const override
     {
         DecodeResult result;
 
