@@ -1,3 +1,6 @@
+/*-----------------------------------------------------------------------------
+ * CorrectionStrategy.h
+ *---------------------------------------------------------------------------*/
 #pragma once
 #include <bitset>
 #include "DecodeResult.h"
@@ -20,3 +23,7 @@ struct CorrectionStrategy
     virtual DecodeResult decode(StoredBits storedData) const = 0;
 
 };
+
+/*/////////////////////////////////////////////////////////////////////////////
+ * end CorrectionStrategy.h
+ *///////////////////////////////////////////////////////////////////////////*/
